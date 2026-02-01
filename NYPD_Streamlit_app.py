@@ -25,7 +25,7 @@ section = st.sidebar.radio(
 @st.cache_data
 def load_data():
     # Direct download URL for your shared Google Drive CSV
-    url = "https://drive.google.com/uc?export=download&id=1IKme2tIvwZOhFUxwVBEMwItx2-coVNVY"
+    url = "https://drive.google.com/file/d/1oLtYA2XcakCf5EV9-8_fa2v27d-ylSm0/view?usp=sharing"
 
     try:
         df = pd.read_csv(url)
