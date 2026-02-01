@@ -23,8 +23,8 @@ section = st.sidebar.radio("Go to", [
 @st.cache_data
 def load_data():
     df = pd.read_csv(
-        r"C:\Users\Abhishek Janupati\Downloads\DataVisualisation\Final_Project\NYPD_Streamlit_Dashboard\NYPD_Streamlit_app.py"
-    )
+        r"C:\Users\Abhishek Janupati\Downloads\DataVisualisation\Final_Project\NYPD_Streamlit_Dashboard"
+    ) 
     df['CMPLNT_FR_DT'] = pd.to_datetime(df['CMPLNT_FR_DT'], errors='coerce')
     df['CMPLNT_FR_HOUR'] = pd.to_datetime(df['CMPLNT_FR_TM'], errors='coerce').dt.hour
     df['DayOfWeek'] = df['CMPLNT_FR_DT'].dt.day_name()
