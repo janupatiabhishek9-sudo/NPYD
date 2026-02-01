@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
-import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 import plotly.express as px
+import gdown
+import os
 
 st.set_page_config(layout="wide", page_title="NYPD Complaint Dashboard")
 
@@ -24,27 +25,25 @@ section = st.sidebar.radio(
 # -------------------- LOAD DATA --------------------
 @st.cache_data
 def load_data():
-    # Direct download URL for your shared Google Drive CSV
-    url = "https://drive.google.com/file/d/1jTZvPE1jhk-pde0Q1ywYY0Detd_IeXGU/view?usp=sharing"
+    file_id = "1IKme2tIvwZOhFUxwVBEMwItx2-coVNVY"
+    output = "nypd_data.csv"
 
-    try:
-        df = pd.read_csv(url)
-    except Exception as e:
-        st.error(
-            "❌ Failed to load the dataset from Google Drive.\n\n"
-            "Make sure the file is shared with 'Anyone with link'.\n"
-            f"Details: {e}"
-        )
-        st.stop()
+    # Download only once
+    if not os.path.exists(output):
+        url = f"https://drive.google.com/file/d/1jTZvPE1jhk-pde0Q1ywYY0Detd_IeXGU/view?usp=sharing"
+        with st.spinner("📥 Downloading dataset from Google Drive..."):
+            gdown.download(url, output, quiet=False)
 
-    # Convert dates/times
+    df = pd.read_csv(output, low_memory=False)
+
+    # Date & time processing
     df["CMPLNT_FR_DT"] = pd.to_datetime(df["CMPLNT_FR_DT"], errors="coerce")
     df["CMPLNT_FR_HOUR"] = pd.to_datetime(
         df["CMPLNT_FR_TM"], errors="coerce"
     ).dt.hour
     df["DayOfWeek"] = df["CMPLNT_FR_DT"].dt.day_name()
 
-    # Drop rows without coordinates
+    # Remove rows without coordinates
     df = df.dropna(subset=["Latitude", "Longitude"])
 
     return df
