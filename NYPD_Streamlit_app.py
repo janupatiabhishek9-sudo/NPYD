@@ -8,7 +8,7 @@ import os
 
 st.set_page_config(layout="wide", page_title="NYPD Complaint Dashboard")
 
-# Sidebar
+# -------------------- SIDEBAR --------------------
 st.sidebar.title("Navigation")
 section = st.sidebar.radio(
     "Go to",
@@ -22,40 +22,42 @@ section = st.sidebar.radio(
     ],
 )
 
-# -------------------- LOAD DATA --------------------
+# -------------------- DATA LOADING --------------------
 @st.cache_data
 def load_data():
-    file_id = "1IKme2tIvwZOhFUxwVBEMwItx2-coVNVY"
-    output = "nypd_data.csv"
+    file_id = "1jTZvPE1jhk-pde0Q1ywYY0Detd_IeXGU"
+    output_file = "nypd_data.csv"
 
-    if not os.path.exists(output):
+    if not os.path.exists(output_file):
         with st.spinner("📥 Downloading dataset from Google Drive..."):
-            url = "https://drive.google.com/file/d/1jTZvPE1jhk-pde0Q1ywYY0Detd_IeXGU/view?usp=sharing"
+            base_url = "https://drive.google.com/uc?export=download"
             session = requests.Session()
-            response = session.get(url, params={"id": file_id}, stream=True)
+            response = session.get(base_url, params={"id": file_id}, stream=True)
 
-            # Handle Google Drive confirmation token
+            # Handle Google Drive large-file confirmation
             for key, value in response.cookies.items():
                 if key.startswith("download_warning"):
                     response = session.get(
-                        url,
+                        base_url,
                         params={"id": file_id, "confirm": value},
                         stream=True,
                     )
 
-            with open(output, "wb") as f:
-                for chunk in response.iter_content(32768):
+            with open(output_file, "wb") as f:
+                for chunk in response.iter_content(chunk_size=32768):
                     if chunk:
                         f.write(chunk)
 
-    df = pd.read_csv(output, low_memory=False)
+    df = pd.read_csv(output_file, low_memory=False)
 
+    # Date & time processing
     df["CMPLNT_FR_DT"] = pd.to_datetime(df["CMPLNT_FR_DT"], errors="coerce")
     df["CMPLNT_FR_HOUR"] = pd.to_datetime(
         df["CMPLNT_FR_TM"], errors="coerce"
     ).dt.hour
     df["DayOfWeek"] = df["CMPLNT_FR_DT"].dt.day_name()
 
+    # Remove rows without coordinates
     df = df.dropna(subset=["Latitude", "Longitude"])
 
     return df
@@ -65,9 +67,10 @@ df = load_data()
 
 # -------------------- SECTIONS --------------------
 if section == "Overview":
-    st.title("🚔 NYPD Complaint Data - Overview")
+    st.title("🚔 NYPD Complaint Data – Overview")
     st.write(f"Dataset shape: {df.shape}")
     st.dataframe(df.head())
+
     st.subheader("Top Complaint Types")
     st.bar_chart(df["OFNS_DESC"].value_counts().head(10))
 
@@ -85,7 +88,7 @@ elif section == "Borough & Precincts":
     fig1 = px.bar(
         x=borough_counts.index,
         y=borough_counts.values,
-        labels={"x": "Borough", "y": "Complaints"},
+        labels={"x": "Borough", "y": "Number of Complaints"},
         title="Complaints by Borough",
     )
     st.plotly_chart(fig1, use_container_width=True)
@@ -95,7 +98,7 @@ elif section == "Borough & Precincts":
     fig2 = px.bar(
         x=top_precincts.index.astype(str),
         y=top_precincts.values,
-        labels={"x": "Precinct", "y": "Complaints"},
+        labels={"x": "Precinct", "y": "Number of Complaints"},
         title="Top Precincts by Complaints",
     )
     st.plotly_chart(fig2, use_container_width=True)
@@ -107,4 +110,43 @@ elif section == "Time-Based Trends":
     fig3 = px.line(
         x=hourly.index,
         y=hourly.values,
-        labels={"x": "H
+        labels={"x": "Hour of Day", "y": "Number of Complaints"},
+        title="Complaints by Hour",
+    )
+    st.plotly_chart(fig3, use_container_width=True)
+
+    st.subheader("📆 Complaints Heatmap (Day vs Hour)")
+    heat_df = df.groupby(["DayOfWeek", "CMPLNT_FR_HOUR"]).size().unstack()
+    heat_df = heat_df.reindex(
+        ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    )
+
+    fig4, ax = plt.subplots(figsize=(10, 6))
+    sns.heatmap(heat_df.fillna(0), cmap="YlOrRd", ax=ax)
+    st.pyplot(fig4)
+
+elif section == "Complaint Explorer":
+    st.title("🔍 Complaint Type Explorer")
+
+    selected_type = st.selectbox(
+        "Select Complaint Type",
+        sorted(df["OFNS_DESC"].dropna().unique()),
+    )
+
+    filtered = df[df["OFNS_DESC"] == selected_type]
+    st.write(f"Total complaints for **{selected_type}**: {len(filtered)}")
+
+    fig5 = px.scatter_mapbox(
+        filtered,
+        lat="Latitude",
+        lon="Longitude",
+        hover_data=["CMPLNT_FR_DT", "BORO_NM"],
+        zoom=10,
+        height=500,
+    )
+    fig5.update_layout(mapbox_style="open-street-map")
+    st.plotly_chart(fig5, use_container_width=True)
+
+elif section == "Missing Data":
+    st.title("🧼 Missing Data Overview")
+    st.dataframe(df.isnull().sum())
